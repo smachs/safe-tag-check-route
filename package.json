@@ -1,0 +1,15 @@
+{
+  "name": "safe_tag_check_route",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "express": "^4.21.2",
+    "haversine": "^1.1.1"
+  }
+}
