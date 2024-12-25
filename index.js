@@ -79,9 +79,9 @@ function closestPointOnSegment(start, end, point) {
 }
 
 app.post('/validate-driver', async (req, res) => {
-  const { initial, destination, actual } = req.body;
+  const { initial, destination, actual, deviationRadius } = req.body;
 
-  if (!initial || !destination || !actual) {
+  if (!initial || !destination || !actual || !deviationRadius) {
     return res.status(400).json({ error: "Dados de entrada incompletos." });
   }
 
@@ -96,7 +96,7 @@ app.post('/validate-driver', async (req, res) => {
     }
 
     const decodedPolyline = polyline.decode(route.overview_polyline.points);
-    const estaNaRota = isLocationNearPolyline(ponto, decodedPolyline, 0.005); // Ajuste da tolerância Ex. 50 Mt
+    const estaNaRota = isLocationNearPolyline(ponto, decodedPolyline, deviationRadius); // Ajuste da tolerância Ex. 50 Mt
 
     res.json({ inRoute: estaNaRota });
   } catch (error) {
