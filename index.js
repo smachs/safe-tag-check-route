@@ -8,8 +8,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyAFMw99I94DKzKrQG1VCGIDdCFcHjWB1q0"; // Replace with your actual key
-
+const GOOGLE_MAPS_API_KEY = "AIzaSyAFMw99I94DKzKrQG1VCGIDdCFcHjWB1q0"; // Substitua pela sua chave de API do Google Maps
 const client = new Client({});
 
 // Improved error handling for API requests
@@ -21,22 +20,22 @@ async function getRouteFromGoogleMaps(inicio, fim) {
         destination: fim,
         key: GOOGLE_MAPS_API_KEY,
       },
-      timeout: 1000,
+      timeout: 5000, // Aumentado para evitar falhas por tempo curto
     });
 
     if (response.data.status === "OK") {
       return response.data.routes[0];
     } else {
       console.error("Error in Google Maps API request:", response.data.status);
-      return null; // Indicate error or handle appropriately
+      return null; // Indica erro ou trate adequadamente
     }
   } catch (error) {
     console.error("Error fetching directions from Google Maps:", error);
-    return null; // Indicate error or handle appropriately
+    return null; // Indica erro ou trate adequadamente
   }
 }
 
-// Improved `isLocationNearPolyline` function for clarity and efficiency
+// Function to check if a location is near a polyline
 function isLocationNearPolyline(ponto, polyline, tolerance) {
   const point = { latitude: ponto.lat, longitude: ponto.lng };
 
@@ -44,7 +43,8 @@ function isLocationNearPolyline(ponto, polyline, tolerance) {
     const start = { latitude: polyline[i][0], longitude: polyline[i][1] };
     const end = { latitude: polyline[i + 1][0], longitude: polyline[i + 1][1] };
 
-    const distance = haversine(point, closestPointOnSegment(start, end, point), { unit: 'km' });
+    const distance = haversine(point, closestPointOnSegment(start, end, point), { unit: 'meter' });
+    console.log("🚀 ~ isLocationNearPolyline ~ distance:", distance, distance <= tolerance);
     if (distance <= tolerance) {
       return true;
     }
@@ -53,16 +53,12 @@ function isLocationNearPolyline(ponto, polyline, tolerance) {
   return false;
 }
 
-// Helper function to find closest point on a segment to a point
+// Helper function to find the closest point on a segment to a point
 function closestPointOnSegment(start, end, point) {
-  const segmentLength = haversine(start, end, { unit: 'km' });
-  if (segmentLength === 0) {
-    return start; // Degenerate case: start and end are the same point
-  }
+  const dx = end.latitude - start.latitude;
+  const dy = end.longitude - start.longitude;
 
-  const u = ((point.latitude - start.latitude) * (end.latitude - start.latitude) +
-    (point.longitude - start.longitude) * (end.longitude - start.longitude)) /
-    (segmentLength * segmentLength);
+  const u = ((point.latitude - start.latitude) * dx + (point.longitude - start.longitude) * dy) / (dx * dx + dy * dy);
 
   if (u < 0) {
     return start;
@@ -73,8 +69,8 @@ function closestPointOnSegment(start, end, point) {
   }
 
   return {
-    latitude: start.latitude + (u * (end.latitude - start.latitude)),
-    longitude: start.longitude + (u * (end.longitude - start.longitude)),
+    latitude: start.latitude + u * dx,
+    longitude: start.longitude + u * dy,
   };
 }
 
@@ -86,9 +82,9 @@ app.post('/validate-driver', async (req, res) => {
   }
 
   try {
-    const inicio = { lat: initial.split(",")[0], lng: initial.split(",")[1] };
-    const fim = { lat: destination.split(",")[0], lng: destination.split(",")[1] };
-    const ponto = { lat: actual.split(",")[0], lng: actual.split(",")[1] };
+    const inicio = { lat: parseFloat(initial.split(",")[0]), lng: parseFloat(initial.split(",")[1]) };
+    const fim = { lat: parseFloat(destination.split(",")[0]), lng: parseFloat(destination.split(",")[1]) };
+    const ponto = { lat: parseFloat(actual.split(",")[0]), lng: parseFloat(actual.split(",")[1]) };
 
     const route = await getRouteFromGoogleMaps(inicio, fim);
     if (!route) {
@@ -96,7 +92,7 @@ app.post('/validate-driver', async (req, res) => {
     }
 
     const decodedPolyline = polyline.decode(route.overview_polyline.points);
-    const estaNaRota = isLocationNearPolyline(ponto, decodedPolyline, deviationRadius); // Ajuste da tolerância Ex. 50 Mt
+    const estaNaRota = isLocationNearPolyline(ponto, decodedPolyline, Number(deviationRadius)); // Ajuste da tolerância (em metros)
 
     res.json({ inRoute: estaNaRota });
   } catch (error) {
