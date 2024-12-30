@@ -3,6 +3,7 @@ const cors = require('cors');
 const { Client } = require("@googlemaps/google-maps-services-js");
 const polyline = require('@googlemaps/polyline-codec');
 const haversine = require('haversine'); // For distance calculation
+const axios = require('axios');
 
 const app = express();
 app.use(express.json());
@@ -73,6 +74,47 @@ function closestPointOnSegment(start, end, point) {
     longitude: start.longitude + u * dy,
   };
 }
+
+app.post('/calculate-distance', async (req, res) => {
+  const { initial, destination } = req.body;
+
+  if (!initial || !destination) {
+    return res.status(400).json({ error: 'Origem e destino são obrigatórios.' });
+  }
+
+  try {
+    const start = { lat: parseFloat(initial.split(",")[0]), lng: parseFloat(initial.split(",")[1]) };
+    const end = { lat: parseFloat(destination.split(",")[0]), lng: parseFloat(destination.split(",")[1]) };
+    const response = await axios.get('https://maps.googleapis.com/maps/api/distancematrix/json', {
+      params: {
+        origins: `${start.lat},${start.lng}`, // Corrigido de 'initials'
+        destinations: `${end.lat},${end.lng}`,
+        key: GOOGLE_MAPS_API_KEY,
+      },
+    });
+    const data = response.data;
+
+    if (data.status !== 'OK') {
+      return res.status(500).json({ error: 'Erro ao buscar dados do Google Maps.' });
+    }
+
+    const element = data.rows[0].elements[0];
+    if (element.status !== 'OK') {
+      return res.status(400).json({ error: 'Não foi possível calcular a distância para os locais fornecidos.' });
+    }
+
+    const distanceInKm = element.distance.value / 1000; // distância em quilômetros
+    const durationInMinutes = element.duration.value / 60; // duração em minutos
+
+    res.json({
+      distance: `${distanceInKm.toFixed(2)} km`,
+      duration: `${durationInMinutes.toFixed(2)} minutos`,
+    });
+  } catch (error) {
+    console.error('Erro ao calcular distância:', error.message);
+    res.status(500).json({ error: 'Erro interno ao calcular distância.' });
+  }
+});
 
 app.post('/validate-driver', async (req, res) => {
   const { initial, destination, actual, deviationRadius } = req.body;
